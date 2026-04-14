@@ -1,0 +1,65 @@
+name: Build JRE 21 Alpine Image
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - Dockerfile
+      - .github/workflows/build-jre21-alpine.yml
+
+env:
+  IMAGE_NAME: sujikin/backend
+  IMAGE_TAG: jre21-alpine
+  IMAGE_VERSION_TAG: jre21-alpine-3.23-java21
+
+jobs:
+  build-scan-push:
+    name: Build, scan, and push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build image for scanning
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          pull: true
+          no-cache: true
+          load: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+            ${{ env.IMAGE_NAME }}:${{ env.IMAGE_VERSION_TAG }}
+
+      - name: Smoke test Java runtime
+        run: docker run --rm ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          scanners: vuln
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+          ignore-unfixed: false
+          exit-code: "1"
+          timeout: 30m
+
+      - name: Push image to Docker Hub
+        run: |
+          docker push ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          docker push ${{ env.IMAGE_NAME }}:${{ env.IMAGE_VERSION_TAG }}
