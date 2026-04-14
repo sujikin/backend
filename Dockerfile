@@ -8,6 +8,8 @@ ARG ALPINE_VERSION
 LABEL org.opencontainers.image.title="jre21-alpine"
 LABEL org.opencontainers.image.description="Personal Alpine Linux image with patched OpenJDK 21 JRE"
 
+# BusyBox is inherited from Alpine and provides /bin/sh.
+# Keep it explicit so the build fails if Alpine cannot provide the patched revision.
 RUN set -eux; \
     printf '%s\n' \
         "https://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/main" \
@@ -15,6 +17,8 @@ RUN set -eux; \
         > /etc/apk/repositories; \
     apk upgrade --no-cache --available; \
     apk add --no-cache \
+        'busybox>=1.37.0-r30' \
+        'busybox-binsh>=1.37.0-r30' \
         'libcrypto3>=3.5.6-r0' \
         'libssl3>=3.5.6-r0' \
         'musl>=1.2.5-r23' \
