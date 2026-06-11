@@ -1,0 +1,35 @@
+# syntax=docker/dockerfile:1
+
+ARG TEMURIN_IMAGE=eclipse-temurin:21-jre-jammy
+ARG TEMURIN_DIGEST=sha256:d55dbd057686905745ddc5db95043c54a085cc07b7012dc7941a5c900979c6d7
+FROM ${TEMURIN_IMAGE}@${TEMURIN_DIGEST}
+
+ARG TEMURIN_IMAGE
+ARG TEMURIN_DIGEST
+
+LABEL org.opencontainers.image.title="jre21-jammy-hardened"
+LABEL org.opencontainers.image.description="Hardened Eclipse Temurin 21 JRE Jammy image rebuilt with current Ubuntu security updates"
+LABEL org.opencontainers.image.base.name="${TEMURIN_IMAGE}"
+LABEL org.opencontainers.image.base.digest="${TEMURIN_DIGEST}"
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+ENV DEBIAN_FRONTEND="noninteractive"
+
+# Rebuild from the requested Eclipse Temurin Jammy digest, apply all available
+# Ubuntu security updates, remove package-manager residue, and run as non-root.
+RUN set -eux; \
+    apt-get update; \
+    apt-get -y --no-install-recommends dist-upgrade; \
+    apt-get -y --no-install-recommends install ca-certificates tzdata; \
+    apt-get -y autoremove --purge; \
+    apt-get clean; \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*; \
+    useradd --create-home --home-dir /home/app --shell /usr/sbin/nologin --uid 10001 app; \
+    java -version; \
+    dpkg-query -W -f='${Package} ${Version}\n' | sort > /etc/dpkg-installed-packages.txt
+
+USER 10001:10001
+WORKDIR /home/app
+
+CMD ["java", "-version"]
